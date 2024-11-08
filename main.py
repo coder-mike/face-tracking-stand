@@ -6,6 +6,7 @@ import time
 import pickle
 from adafruit_servokit import ServoKit
 import os
+from processing import process_frame  # Importing the extracted function
 
 # Load pre-trained face encodings
 print("[INFO] loading encodings...")
@@ -23,9 +24,6 @@ picam2.start()
 # Initialize our variables
 cv_scaler = 4 # this has to be a whole number
 
-face_locations = []
-face_encodings = []
-face_names = []
 frame_count = 0
 start_time = time.time()
 fps = 0
@@ -35,67 +33,6 @@ kit = ServoKit(channels=16)
 
 # Detect if running over SSH
 is_ssh = 'SSH_CONNECTION' in os.environ or 'SSH_CLIENT' in os.environ
-
-def process_frame(frame):
-    global face_locations, face_encodings, face_names
-
-    timings = {}
-
-    # Resize the frame
-    resize_start = time.time()
-    resized_frame = cv2.resize(frame, (0, 0), fx=(1/cv_scaler), fy=(1/cv_scaler))
-    timings['resize'] = (time.time() - resize_start) * 1000  # milliseconds
-
-    # Color conversion
-    color_conversion_start = time.time()
-    rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
-    timings['color_conversion'] = (time.time() - color_conversion_start) * 1000  # milliseconds
-
-    # Face location
-    face_location_start = time.time()
-    face_locations = face_recognition.face_locations(rgb_resized_frame)
-    timings['face_location'] = (time.time() - face_location_start) * 1000  # milliseconds
-
-    # Face encoding
-    face_encoding_start = time.time()
-    face_encodings = face_recognition.face_encodings(rgb_resized_frame, face_locations, model='large')
-    timings['face_encoding'] = (time.time() - face_encoding_start) * 1000  # milliseconds
-
-    # Face matching
-    face_matching_start = time.time()
-    face_names = []
-    for face_encoding in face_encodings:
-        # See if the face is a match for the known face(s)
-        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-        name = "Unknown"
-
-        # Use the known face with the smallest distance to the new face
-        face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
-        best_match_index = np.argmin(face_distances)
-        if matches[best_match_index]:
-            name = known_face_names[best_match_index]
-        face_names.append(name)
-    timings['face_matching'] = (time.time() - face_matching_start) * 1000  # milliseconds
-
-    # Output timings for processing steps
-    print(f"fps: {fps:.1f}, "
-        # f"Resize: {timings['resize']:.2f} ms, "
-        # f"Color Conversion: {timings['color_conversion']:.2f} ms, "
-        f"Face Location: {timings['face_location']:.2f} ms, "
-        f"Face Encoding: {timings['face_encoding']:.2f} ms, "
-        f"Face Matching: {timings['face_matching']:.2f} ms"
-    )
-
-    # After identifying face_locations
-    # Calculate average x-position of faces
-    if face_locations:
-        avg_x = sum([(left + right) / 2 for (top, right, bottom, left) in face_locations]) / len(face_locations)
-        # Map x-position (0-1920) to servo angle (0-180)
-        servo_angle = (avg_x / (1920 / cv_scaler)) * 180
-        # Move servo to the angle
-        kit.servo[0].angle = servo_angle
-
-    return frame
 
 def draw_results(frame):
     # Display the results
@@ -136,10 +73,25 @@ try:
         frame = picam2.capture_array()
 
         # Process the frame with the function
-        processed_frame = process_frame(frame)
+        processed_frame, face_locations, face_names, timings = process_frame(
+            frame,
+            known_face_encodings,
+            known_face_names,
+            cv_scaler,
+            kit
+        )
 
         # Calculate and update FPS
         fps = calculate_fps()
+
+        # Output timings for processing steps
+        print(f"fps: {fps:.1f}, "
+            # f"Resize: {timings['resize']:.2f} ms, "
+            # f"Color Conversion: {timings['color_conversion']:.2f} ms, "
+            f"Face Location: {timings['face_location']:.2f} ms, "
+            f"Face Encoding: {timings['face_encoding']:.2f} ms, "
+            f"Face Matching: {timings['face_matching']:.2f} ms"
+        )
 
         # Display everything over the video feed.
         if not is_ssh:

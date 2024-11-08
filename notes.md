@@ -67,3 +67,14 @@ Yes, you can use the **Remote - SSH** extension in Visual Studio Code to directl
    - Once connected, open the folder containing your code on the Raspberry Pi.
 
 Now you can edit files directly on your Raspberry Pi from VS Code without needing to sync through Git. You can also run and debug your code remotely.
+
+
+
+
+
+
+
+
+
+
+I want to optimize this a bit. I want to have separate processing paths for a "full scan" vs "small changes". The full scan mode is what it currently does. The "small changes" mode will only do the face detection around each region where a face was previously detected. Then the resizing will
