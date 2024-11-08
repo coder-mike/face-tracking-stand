@@ -4,6 +4,7 @@ import numpy as np
 from picamera2 import Picamera2
 import time
 import pickle
+from adafruit_servokit import ServoKit
 
 # Load pre-trained face encodings
 print("[INFO] loading encodings...")
@@ -26,6 +27,8 @@ face_names = []
 frame_count = 0
 start_time = time.time()
 fps = 0
+
+kit = ServoKit(channels=16)
 
 def process_frame(frame):
     global face_locations, face_encodings, face_names
@@ -52,6 +55,15 @@ def process_frame(frame):
         if matches[best_match_index]:
             name = known_face_names[best_match_index]
         face_names.append(name)
+
+    # After identifying face_locations
+    # Calculate average x-position of faces
+    if face_locations:
+        avg_x = sum([(left + right) / 2 for (top, right, bottom, left) in face_locations]) / len(face_locations)
+        # Map x-position (0-1920) to servo angle (0-180)
+        servo_angle = (avg_x / 1920) * 180
+        # Move servo to the angle
+        kit.servo[0].angle = servo_angle
 
     return frame
 
@@ -101,8 +113,8 @@ while True:
     cv2.putText(display_frame, f"FPS: {current_fps:.1f}", (display_frame.shape[1] - 150, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-    # Resize the display_frame to 720p
-    display_frame = cv2.resize(display_frame, (1280, 720))
+    # Resize the display_frame to 360p
+    display_frame = cv2.resize(display_frame, (640, 360))
 
     # Display everything over the video feed.
     cv2.imshow('Video', display_frame)
