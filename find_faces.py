@@ -13,7 +13,7 @@ with open("encodings.pickle", "rb") as f:
 known_face_encodings = data["encodings"]
 known_face_names = data["names"]
 
-def process_frame(frame):
+def find_faces(frame):
     """
     Process a single frame for face recognition and servo control.
 

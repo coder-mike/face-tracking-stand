@@ -2,7 +2,7 @@ import cv2
 from picamera2 import Picamera2
 import time
 import os
-from processing import process_frame
+from find_faces import find_faces
 from servo_control import servo_control
 
 print("[INFO] initializing camera...")
@@ -60,7 +60,7 @@ try:
         frame = picam2.capture_array()
 
         # Process the frame with the function
-        processed_frame, face_locations, face_names, timings = process_frame(
+        processed_frame, face_locations, face_names, timings = find_faces(
             frame
         )
 
