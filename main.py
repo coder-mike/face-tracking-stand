@@ -13,6 +13,7 @@ with open("encodings.pickle", "rb") as f:
 known_face_encodings = data["encodings"]
 known_face_names = data["names"]
 
+print("[INFO] initializing camera...")
 # Initialize the camera
 picam2 = Picamera2()
 picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (1920, 1080)}))
@@ -28,6 +29,7 @@ frame_count = 0
 start_time = time.time()
 fps = 0
 
+print("[INFO] initializing servo...")
 kit = ServoKit(channels=16)
 
 def process_frame(frame):
@@ -116,6 +118,7 @@ def calculate_fps():
         start_time = time.time()
     return fps
 
+print("[INFO] starting main loop...")
 while True:
     # Start timing
     cycle_start_time = time.time()
