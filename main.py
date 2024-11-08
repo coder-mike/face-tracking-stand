@@ -61,7 +61,7 @@ def process_frame(frame):
     if face_locations:
         avg_x = sum([(left + right) / 2 for (top, right, bottom, left) in face_locations]) / len(face_locations)
         # Map x-position (0-1920) to servo angle (0-180)
-        servo_angle = (avg_x / 1920) * 180
+        servo_angle = (avg_x / (1920 / cv_scaler)) * 180
         # Move servo to the angle
         kit.servo[0].angle = servo_angle
 
@@ -122,6 +122,9 @@ while True:
     # Break the loop and stop the script if 'q' is pressed
     if cv2.waitKey(1) == ord("q"):
         break
+
+    # Add a delay to slow down the frame rate to 1 FPS
+    time.sleep(1)
 
 # By breaking the loop we run this code here which closes everything
 cv2.destroyAllWindows()
