@@ -2,7 +2,6 @@ import time
 import cv2
 import face_recognition
 import pickle
-from adafruit_servokit import ServoKit
 import numpy as np
 
 cv_scaler = 4 # this has to be a whole number
@@ -13,9 +12,6 @@ with open("encodings.pickle", "rb") as f:
     data = pickle.loads(f.read())
 known_face_encodings = data["encodings"]
 known_face_names = data["names"]
-
-print("[INFO] initializing servo...")
-kit = ServoKit(channels=16)
 
 def process_frame(frame):
     """
@@ -87,13 +83,6 @@ def process_frame(frame):
         for (top, right, bottom, left) in face_locations
     ]
 
-    # After identifying face_locations
-    # Calculate average x-position of faces
-    if face_locations:
-        avg_x = sum([(left + right) / 2 for (top, right, bottom, left) in face_locations]) / len(face_locations)
-        # Map x-position (0-1920) to servo angle (0-180)
-        servo_angle = avg_x * 180
-        # Move servo to the angle
-        kit.servo[0].angle = servo_angle
+
 
     return frame, face_locations, face_names, timings

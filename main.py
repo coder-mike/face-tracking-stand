@@ -2,7 +2,8 @@ import cv2
 from picamera2 import Picamera2
 import time
 import os
-from processing import process_frame  # Importing the extracted function
+from processing import process_frame
+from servo_control import servo_control
 
 print("[INFO] initializing camera...")
 # Initialize the camera
@@ -62,6 +63,8 @@ try:
         processed_frame, face_locations, face_names, timings = process_frame(
             frame
         )
+
+        servo_control(face_locations)
 
         # Calculate and update FPS
         fps = calculate_fps()
