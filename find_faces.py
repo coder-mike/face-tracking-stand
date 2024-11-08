@@ -90,7 +90,7 @@ def full_scan(frame):
     return face_locations, face_names, live, timings
 
 
-def delta_scan(frame, previous_face_locations, previous_face_names):
+def delta_scan(frame, previous_face_locations, previous_face_names, previous_live):
     face_locations = []
     face_names = []
     live = []
@@ -110,9 +110,16 @@ def delta_scan(frame, previous_face_locations, previous_face_names):
         bottom = int(bottom_norm * frame_height)
         left = int(left_norm * frame_width)
 
+        if previous_live:
+            margin = 0.3
+            width_new = 50
+        else:
+            margin = 1.0
+            width_new = 150
+
         # Calculate margins
-        margin_v = int((bottom - top) * 0.5)
-        margin_h = int((right - left) * 0.5)
+        margin_v = int((bottom - top) * margin)
+        margin_h = int((right - left) * margin)
 
         # Define new region with margins and ensure coordinates are within frame bounds
         top_new = max(0, top - margin_v)
@@ -124,7 +131,6 @@ def delta_scan(frame, previous_face_locations, previous_face_names):
         cropped_frame = frame[top_new:bottom_new, left_new:right_new]
 
         # Resize to speed up face detection
-        width_new = 50
         scale = width_new / (right_new - left_new)
         height_new = int((bottom_new - top_new) * scale)
         resized_cropped_frame = cv2.resize(cropped_frame, (width_new, height_new))

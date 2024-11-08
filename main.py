@@ -74,6 +74,7 @@ def calculate_fps():
 # Initialize previous face data
 previous_face_locations = []
 previous_face_names = []
+previous_live = []
 last_full_scan_time = time.time()
 failed_delta_count = 0
 
@@ -85,6 +86,9 @@ try:
 
         # Capture a frame from camera
         frame = picam2.capture_array()
+
+        # Invert the frame on the y-axis because the camera is upside down
+        frame = cv2.flip(frame, -1)
 
         # Add brightness adjustment before processing
         frame = adjust_brightness(frame)
@@ -106,7 +110,7 @@ try:
             do_full_scan = True
 
         if not do_full_scan:
-            face_locations, face_names, live, timings = delta_scan(frame, previous_face_locations, previous_face_names)
+            face_locations, face_names, live, timings = delta_scan(frame, previous_face_locations, previous_face_names, previous_live)
             if all(live):
                 failed_delta_count = 0
             else:
@@ -120,6 +124,7 @@ try:
         # Update previous face data
         previous_face_locations = face_locations
         previous_face_names = face_names
+        previous_live = live
 
         servo_control(face_locations)
 
@@ -158,7 +163,7 @@ try:
         else:
             # Sleep to maintain constant frame rate and avoid high CPU usage
             cycle_time = time.time() - cycle_start_time
-            time.sleep(max(0, 1/15 - cycle_time))
+            # time.sleep(max(0, 1/15 - cycle_time))
 except KeyboardInterrupt:
     # Allow script to be stopped with Ctrl+C when running over SSH
     pass
