@@ -133,51 +133,30 @@ try:
         cycle_start_time = time.time()
 
         # Capture a frame from camera
-        capture_start = time.time()
         frame = picam2.capture_array()
-        capture_time = (time.time() - capture_start) * 1000  # milliseconds
 
         # Process the frame with the function
-        process_start = time.time()
         processed_frame = process_frame(frame)
-        process_time = (time.time() - process_start) * 1000  # milliseconds
-
-        # Get the text and boxes to be drawn based on the processed frame
-        draw_start = time.time()
-        display_frame = draw_results(processed_frame)
-        draw_time = (time.time() - draw_start) * 1000  # milliseconds
 
         # Calculate and update FPS
         fps = calculate_fps()
 
-        # Attach FPS counter to the text and boxes
-        cv2.putText(display_frame, f"FPS: {fps:.1f}", (display_frame.shape[1] - 150, 30),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-
-        # Resize the display_frame to 360p
-        resize_display_start = time.time()
-        display_frame = cv2.resize(display_frame, (640, 360))
-        resize_display_time = (time.time() - resize_display_start) * 1000  # milliseconds
-
         # Display everything over the video feed.
         if not is_ssh:
-            imshow_start = time.time()
+            # Get the text and boxes to be drawn based on the processed frame
+            display_frame = draw_results(processed_frame)
+
+            # Resize the display_frame to 360p
+            display_frame = cv2.resize(display_frame, (640, 360))
+
+            # Attach FPS counter to the text and boxes
+            cv2.putText(display_frame, f"FPS: {fps:.1f}", (display_frame.shape[1] - 150, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             cv2.imshow('Video', display_frame)
-            imshow_time = (time.time() - imshow_start) * 1000  # milliseconds
 
             # Break the loop if 'q' is pressed
             if cv2.waitKey(1) == ord("q"):
                 break
-        else:
-            imshow_time = 0  # Imshow not called in SSH mode
-
-        # Total cycle time
-        cycle_time = (time.time() - cycle_start_time) * 1000  # milliseconds
-
-        # Output timings to console
-        # print(f"Capture: {capture_time:.2f} ms, Process: {process_time:.2f} ms, Draw: {draw_time:.2f} ms, "
-        #       f"Resize Display: {resize_display_time:.2f} ms, Imshow: {imshow_time:.2f} ms, "
-        #       f"Total Cycle: {cycle_time:.2f} ms")
 
         # time.sleep(0.01)  # Small delay to prevent high CPU usage
 except KeyboardInterrupt:
