@@ -1,22 +1,34 @@
 import time
 import cv2
 import face_recognition
+import pickle
+from adafruit_servokit import ServoKit
+import numpy as np
 
-def process_frame(frame, known_face_encodings, known_face_names, cv_scaler, kit):
+cv_scaler = 4 # this has to be a whole number
+
+# Load pre-trained face encodings
+print("[INFO] loading encodings...")
+with open("encodings.pickle", "rb") as f:
+    data = pickle.loads(f.read())
+known_face_encodings = data["encodings"]
+known_face_names = data["names"]
+
+print("[INFO] initializing servo...")
+kit = ServoKit(channels=16)
+
+def process_frame(frame):
     """
     Process a single frame for face recognition and servo control.
 
     Args:
         frame (ndarray): The image frame to process.
-        known_face_encodings (list): List of known face encodings.
-        known_face_names (list): List of names corresponding to the known face encodings.
         cv_scaler (int): Scaling factor for resizing the frame.
-        kit (ServoKit): Instance of the servo kit to control the servo motor.
 
     Returns:
         tuple: A tuple containing:
             - frame (ndarray): The processed frame (unchanged in this function).
-            - face_locations (list): List of face locations found in the frame.
+            - face_locations (list): List of face locations found in the frame, normalized to (0 to 1.0) range.
             - face_names (list): List of names corresponding to detected faces.
             - timings (dict): Dictionary of timing measurements for processing steps.
     """
@@ -62,12 +74,25 @@ def process_frame(frame, known_face_encodings, known_face_names, cv_scaler, kit)
         face_names.append(name)
     timings['face_matching'] = (time.time() - face_matching_start) * 1000  # milliseconds
 
+    # Normalize face locations to 0..1.0 range
+    resized_frame_width = resized_frame.shape[1]
+    resized_frame_height = resized_frame.shape[0]
+    face_locations = [
+        (
+            top / resized_frame_height,
+            right / resized_frame_width,
+            bottom / resized_frame_height,
+            left / resized_frame_width
+        )
+        for (top, right, bottom, left) in face_locations
+    ]
+
     # After identifying face_locations
     # Calculate average x-position of faces
     if face_locations:
         avg_x = sum([(left + right) / 2 for (top, right, bottom, left) in face_locations]) / len(face_locations)
         # Map x-position (0-1920) to servo angle (0-180)
-        servo_angle = (avg_x / (1920 / cv_scaler)) * 180
+        servo_angle = avg_x * 180
         # Move servo to the angle
         kit.servo[0].angle = servo_angle
 

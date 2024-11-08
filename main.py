@@ -1,19 +1,8 @@
-import face_recognition
 import cv2
-import numpy as np
 from picamera2 import Picamera2
 import time
-import pickle
-from adafruit_servokit import ServoKit
 import os
 from processing import process_frame  # Importing the extracted function
-
-# Load pre-trained face encodings
-print("[INFO] loading encodings...")
-with open("encodings.pickle", "rb") as f:
-    data = pickle.loads(f.read())
-known_face_encodings = data["encodings"]
-known_face_names = data["names"]
 
 print("[INFO] initializing camera...")
 # Initialize the camera
@@ -21,27 +10,24 @@ picam2 = Picamera2()
 picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (1920, 1080)}))
 picam2.start()
 
-# Initialize our variables
-cv_scaler = 4 # this has to be a whole number
-
 frame_count = 0
 start_time = time.time()
 fps = 0
 
-print("[INFO] initializing servo...")
-kit = ServoKit(channels=16)
-
 # Detect if running over SSH
 is_ssh = 'SSH_CONNECTION' in os.environ or 'SSH_CLIENT' in os.environ
 
-def draw_results(frame):
+def draw_results(frame, face_locations, face_names):
+    frame_width = frame.shape[1]
+    frame_height = frame.shape[0]
+
     # Display the results
     for (top, right, bottom, left), name in zip(face_locations, face_names):
         # Scale back up face locations since the frame we detected in was scaled
-        top *= cv_scaler
-        right *= cv_scaler
-        bottom *= cv_scaler
-        left *= cv_scaler
+        top *= frame_height
+        right *= frame_width
+        bottom *= frame_height
+        left *= frame_width
 
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (244, 42, 3), 3)
@@ -74,11 +60,7 @@ try:
 
         # Process the frame with the function
         processed_frame, face_locations, face_names, timings = process_frame(
-            frame,
-            known_face_encodings,
-            known_face_names,
-            cv_scaler,
-            kit
+            frame
         )
 
         # Calculate and update FPS
@@ -96,7 +78,7 @@ try:
         # Display everything over the video feed.
         if not is_ssh:
             # Get the text and boxes to be drawn based on the processed frame
-            display_frame = draw_results(processed_frame)
+            display_frame = draw_results(processed_frame, face_locations, face_names)
 
             # Resize the display_frame to 360p
             display_frame = cv2.resize(display_frame, (640, 360))
