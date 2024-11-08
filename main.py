@@ -60,7 +60,7 @@ try:
         frame = picam2.capture_array()
 
         # Process the frame with the function
-        processed_frame, face_locations, face_names, timings = find_faces(
+        face_locations, face_names, timings = find_faces(
             frame
         )
 
@@ -81,7 +81,7 @@ try:
         # Display everything over the video feed.
         if not is_ssh:
             # Get the text and boxes to be drawn based on the processed frame
-            display_frame = draw_results(processed_frame, face_locations, face_names)
+            display_frame = draw_results(frame, face_locations, face_names)
 
             # Resize the display_frame to 360p
             display_frame = cv2.resize(display_frame, (640, 360))

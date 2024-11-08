@@ -19,7 +19,6 @@ def find_faces(frame):
 
     Args:
         frame (ndarray): The image frame to process.
-        cv_scaler (int): Scaling factor for resizing the frame.
 
     Returns:
         tuple: A tuple containing:
@@ -83,6 +82,4 @@ def find_faces(frame):
         for (top, right, bottom, left) in face_locations
     ]
 
-
-
-    return frame, face_locations, face_names, timings
+    return face_locations, face_names, timings
