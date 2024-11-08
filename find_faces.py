@@ -4,8 +4,6 @@ import face_recognition
 import pickle
 import numpy as np
 
-cv_scaler = 4 # this has to be a whole number
-
 # Load pre-trained face encodings
 print("[INFO] loading encodings...")
 with open("encodings.pickle", "rb") as f:
@@ -13,7 +11,7 @@ with open("encodings.pickle", "rb") as f:
 known_face_encodings = data["encodings"]
 known_face_names = data["names"]
 
-def find_faces(frame):
+def full_scan(frame):
     """
     Process a single frame for face recognition and servo control.
 
@@ -22,7 +20,6 @@ def find_faces(frame):
 
     Returns:
         tuple: A tuple containing:
-            - frame (ndarray): The processed frame (unchanged in this function).
             - face_locations (list): List of face locations found in the frame, normalized to (0 to 1.0) range.
             - face_names (list): List of names corresponding to detected faces.
             - timings (dict): Dictionary of timing measurements for processing steps.
@@ -33,15 +30,8 @@ def find_faces(frame):
     face_names = []
     timings = {}
 
-    # Resize the frame
-    resize_start = time.time()
-    resized_frame = cv2.resize(frame, (0, 0), fx=(1/cv_scaler), fy=(1/cv_scaler))
-    timings['resize'] = (time.time() - resize_start) * 1000  # milliseconds
-
     # Color conversion
-    color_conversion_start = time.time()
-    rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
-    timings['color_conversion'] = (time.time() - color_conversion_start) * 1000  # milliseconds
+    rgb_resized_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     # Face location
     face_location_start = time.time()
@@ -70,8 +60,8 @@ def find_faces(frame):
     timings['face_matching'] = (time.time() - face_matching_start) * 1000  # milliseconds
 
     # Normalize face locations to 0..1.0 range
-    resized_frame_width = resized_frame.shape[1]
-    resized_frame_height = resized_frame.shape[0]
+    resized_frame_width = frame.shape[1]
+    resized_frame_height = frame.shape[0]
     face_locations = [
         (
             top / resized_frame_height,
@@ -81,5 +71,77 @@ def find_faces(frame):
         )
         for (top, right, bottom, left) in face_locations
     ]
+
+    return face_locations, face_names, timings
+
+def delta_scan(frame, previous_face_locations, previous_face_names):
+    face_locations = []
+    face_names = []
+    # Initialize timings with zero values for consistency
+    timings = {
+        'face_location': 0.0,
+        'face_encoding': 0.0,
+        'face_matching': 0.0
+    }
+
+    frame_height, frame_width, _ = frame.shape
+
+    for (top_norm, right_norm, bottom_norm, left_norm), name in zip(previous_face_locations, previous_face_names):
+        # Scale normalized coordinates to pixel values and round them
+        top = int(top_norm * frame_height)
+        right = int(right_norm * frame_width)
+        bottom = int(bottom_norm * frame_height)
+        left = int(left_norm * frame_width)
+
+        # Calculate margins
+        margin_v = int((bottom - top) * 0.5)
+        margin_h = int((right - left) * 0.5)
+
+        # Define new region with margins and ensure coordinates are within frame bounds
+        top_new = max(0, top - margin_v)
+        bottom_new = min(frame_height, bottom + margin_v)
+        left_new = max(0, left - margin_h)
+        right_new = min(frame_width, right + margin_h)
+
+        # Crop the region
+        cropped_frame = frame[top_new:bottom_new, left_new:right_new]
+
+        # Resize to speed up face detection
+        width_new = 200
+        scale = width_new / (right_new - left_new)
+        height_new = int((bottom_new - top_new) * scale)
+        resized_cropped_frame = cv2.resize(cropped_frame, (width_new, height_new))
+
+        # Face detection on cropped image
+        face_location_start = time.time()
+        rgb_cropped_frame = cv2.cvtColor(resized_cropped_frame, cv2.COLOR_BGR2RGB)
+        face_locations_cropped = face_recognition.face_locations(rgb_cropped_frame)
+        timings['face_location'] += (time.time() - face_location_start) * 1000  # Accumulate time in milliseconds
+
+        if len(face_locations_cropped) == 0:
+            print(f"No face detected in cropped image for {name}, so falling back to full scan")
+            return False  # Abort delta scan
+
+        if len(face_locations_cropped) > 1:
+            print(f"Multiple faces detected in cropped image for {name}, so falling back to full scan")
+            return False
+
+        # Map face location back to original frame
+        top_cropped, right_cropped, bottom_cropped, left_cropped = face_locations_cropped[0]
+
+        # Scale back up to the size of the cropped image
+        top_rescaled = top_new + int(top_cropped / height_new * (bottom_new - top_new))
+        bottom_rescaled = top_new + int(bottom_cropped / height_new * (bottom_new - top_new))
+        left_rescaled = left_new + int(left_cropped / width_new * (right_new - left_new))
+        right_rescaled = left_new + int(right_cropped / width_new * (right_new - left_new))
+
+        # Append the normalized face location
+        face_locations.append((
+            top_rescaled / frame_height,
+            right_rescaled / frame_width,
+            bottom_rescaled / frame_height,
+            left_rescaled / frame_width
+        ))
+        face_names.append(name)
 
     return face_locations, face_names, timings

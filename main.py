@@ -2,7 +2,7 @@ import cv2
 from picamera2 import Picamera2
 import time
 import os
-from find_faces import find_faces
+from find_faces import full_scan, delta_scan
 from servo_control import servo_control
 
 print("[INFO] initializing camera...")
@@ -25,10 +25,11 @@ def draw_results(frame, face_locations, face_names):
     # Display the results
     for (top, right, bottom, left), name in zip(face_locations, face_names):
         # Scale back up face locations since the frame we detected in was scaled
-        top *= frame_height
-        right *= frame_width
-        bottom *= frame_height
-        left *= frame_width
+        # (and convert them from float to int)
+        top = int(top * frame_height)
+        right = int(right * frame_width)
+        bottom = int(bottom * frame_height)
+        left = int(left * frame_width)
 
         # Draw a box around the face
         cv2.rectangle(frame, (left, top), (right, bottom), (244, 42, 3), 3)
@@ -50,6 +51,11 @@ def calculate_fps():
         start_time = time.time()
     return fps
 
+# Initialize previous face data
+previous_face_locations = []
+previous_face_names = []
+last_full_scan_time = time.time()
+
 print("[INFO] starting main loop...")
 try:
     while True:
@@ -59,10 +65,33 @@ try:
         # Capture a frame from camera
         frame = picam2.capture_array()
 
-        # Process the frame with the function
-        face_locations, face_names, timings = find_faces(
-            frame
-        )
+        # Check if it's time for a full scan
+        time_since_last_full_scan = time.time() - last_full_scan_time
+        do_full_scan = False
+        if previous_face_locations is None:
+            print("First run, performing full scan")
+            do_full_scan = True
+        elif len(previous_face_locations) == 0:
+            print("No faces detected in previous frame, performing full scan")
+            do_full_scan = True
+        elif time_since_last_full_scan > 10:
+            print("Time since last full scan > 10 seconds, performing full scan")
+            do_full_scan = True
+
+        if not do_full_scan:
+            result = delta_scan(frame, previous_face_locations, previous_face_names)
+            if result:
+                face_locations, face_names, timings = result
+            else:
+                do_full_scan = True
+
+        if do_full_scan:
+            face_locations, face_names, timings = full_scan(frame)
+            last_full_scan_time = time.time()
+
+        # Update previous face data
+        previous_face_locations = face_locations
+        previous_face_names = face_names
 
         servo_control(face_locations)
 
