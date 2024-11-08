@@ -30,8 +30,12 @@ def full_scan(frame):
     face_names = []
     timings = {}
 
+    # Downscale the frame to speed up face detection
+    scale = 0.25
+    resized_frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
+
     # Color conversion
-    rgb_resized_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
     # Face location
     face_location_start = time.time()
@@ -60,8 +64,8 @@ def full_scan(frame):
     timings['face_matching'] = (time.time() - face_matching_start) * 1000  # milliseconds
 
     # Normalize face locations to 0..1.0 range
-    resized_frame_width = frame.shape[1]
-    resized_frame_height = frame.shape[0]
+    resized_frame_width = resized_frame.shape[1]
+    resized_frame_height = resized_frame.shape[0]
     face_locations = [
         (
             top / resized_frame_height,
