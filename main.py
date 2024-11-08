@@ -101,8 +101,8 @@ try:
         elif len(previous_face_locations) == 0:
             print("No faces detected in previous frame, performing full scan")
             do_full_scan = True
-        elif time_since_last_full_scan > 10:
-            print("Time since last full scan > 10 seconds, performing full scan")
+        elif time_since_last_full_scan > 20:
+            print("Time since last full scan > 20 seconds, performing full scan")
             do_full_scan = True
 
         if not do_full_scan:
@@ -152,7 +152,13 @@ try:
             if cv2.waitKey(1) == ord("q"):
                 break
 
-        # time.sleep(0.01)  # Small delay to prevent high CPU usage
+        if do_full_scan:
+            # Full scans are expensive, so sleep for a bit to avoid hitting the CPU too hard
+            time.sleep(1)
+        else:
+            # Sleep to maintain constant frame rate and avoid high CPU usage
+            cycle_time = time.time() - cycle_start_time
+            time.sleep(max(0, 1/20 - cycle_time))
 except KeyboardInterrupt:
     # Allow script to be stopped with Ctrl+C when running over SSH
     pass

@@ -114,7 +114,7 @@ def delta_scan(frame, previous_face_locations, previous_face_names):
         cropped_frame = frame[top_new:bottom_new, left_new:right_new]
 
         # Resize to speed up face detection
-        width_new = 200
+        width_new = 100
         scale = width_new / (right_new - left_new)
         height_new = int((bottom_new - top_new) * scale)
         resized_cropped_frame = cv2.resize(cropped_frame, (width_new, height_new))
