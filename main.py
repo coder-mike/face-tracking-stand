@@ -171,9 +171,9 @@ try:
         cycle_time = (time.time() - cycle_start_time) * 1000  # milliseconds
 
         # Output timings to console
-        print(f"Capture: {capture_time:.2f} ms, Process: {process_time:.2f} ms, Draw: {draw_time:.2f} ms, "
-              f"Resize Display: {resize_display_time:.2f} ms, Imshow: {imshow_time:.2f} ms, "
-              f"Total Cycle: {cycle_time:.2f} ms")
+        # print(f"Capture: {capture_time:.2f} ms, Process: {process_time:.2f} ms, Draw: {draw_time:.2f} ms, "
+        #       f"Resize Display: {resize_display_time:.2f} ms, Imshow: {imshow_time:.2f} ms, "
+        #       f"Total Cycle: {cycle_time:.2f} ms")
 
         # time.sleep(0.01)  # Small delay to prevent high CPU usage
 except KeyboardInterrupt:
