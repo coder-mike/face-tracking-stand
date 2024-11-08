@@ -31,7 +31,7 @@ def full_scan(frame):
     timings = {}
 
     # Downscale the frame to speed up face detection
-    scale = 0.25
+    scale = 0.5
     resized_frame = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
 
     # Color conversion
@@ -50,6 +50,7 @@ def full_scan(frame):
     # Face matching
     face_matching_start = time.time()
     face_names = []
+    live = []
     for face_encoding in face_encodings:
         # See if the face is a match for the known face(s)
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
@@ -61,9 +62,10 @@ def full_scan(frame):
         if matches[best_match_index]:
             name = known_face_names[best_match_index]
         face_names.append(name)
+        live.append(True)
     timings['face_matching'] = (time.time() - face_matching_start) * 1000  # milliseconds
 
-    # Normalize face locations to 0..1.0 range
+    # Normalize face locations to 0..1.0 range so that servo control is independent of camera resolution
     resized_frame_width = resized_frame.shape[1]
     resized_frame_height = resized_frame.shape[0]
     face_locations = [
@@ -76,11 +78,12 @@ def full_scan(frame):
         for (top, right, bottom, left) in face_locations
     ]
 
-    return face_locations, face_names, timings
+    return face_locations, face_names, live, timings
 
 def delta_scan(frame, previous_face_locations, previous_face_names):
     face_locations = []
     face_names = []
+    live = []
     # Initialize timings with zero values for consistency
     timings = {
         'face_location': 0.0,
@@ -122,13 +125,12 @@ def delta_scan(frame, previous_face_locations, previous_face_names):
         face_locations_cropped = face_recognition.face_locations(rgb_cropped_frame)
         timings['face_location'] += (time.time() - face_location_start) * 1000  # Accumulate time in milliseconds
 
-        if len(face_locations_cropped) == 0:
-            print(f"No face detected in cropped image for {name}, so falling back to full scan")
-            return False  # Abort delta scan
-
-        if len(face_locations_cropped) > 1:
-            print(f"Multiple faces detected in cropped image for {name}, so falling back to full scan")
-            return False
+        if len(face_locations_cropped) != 1:
+            # Fall back to previous face location
+            live.append(False)
+            face_locations.append((top_norm, right_norm, bottom_norm, left_norm))
+            face_names.append(name)
+            continue
 
         # Map face location back to original frame
         top_cropped, right_cropped, bottom_cropped, left_cropped = face_locations_cropped[0]
@@ -147,5 +149,6 @@ def delta_scan(frame, previous_face_locations, previous_face_names):
             left_rescaled / frame_width
         ))
         face_names.append(name)
+        live.append(True)
 
-    return face_locations, face_names, timings
+    return face_locations, face_names, live, timings

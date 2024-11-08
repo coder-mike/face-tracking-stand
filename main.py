@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 from picamera2 import Picamera2
 import time
 import os
@@ -9,6 +10,11 @@ print("[INFO] initializing camera...")
 # Initialize the camera
 picam2 = Picamera2()
 picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (1920, 1080)}))
+# Adjust both exposure and ISO for better low-light performance
+picam2.set_controls({
+    "ExposureTime": 5000,
+    "AnalogueGain": 2.0  # This is equivalent to ISO adjustment
+})
 picam2.start()
 
 frame_count = 0
@@ -18,12 +24,12 @@ fps = 0
 # Detect if running over SSH
 is_ssh = 'SSH_CONNECTION' in os.environ or 'SSH_CLIENT' in os.environ
 
-def draw_results(frame, face_locations, face_names):
+def draw_results(frame, face_locations, face_names, live):
     frame_width = frame.shape[1]
     frame_height = frame.shape[0]
 
     # Display the results
-    for (top, right, bottom, left), name in zip(face_locations, face_names):
+    for (top, right, bottom, left), name, live in zip(face_locations, face_names, live):
         # Scale back up face locations since the frame we detected in was scaled
         # (and convert them from float to int)
         top = int(top * frame_height)
@@ -31,8 +37,11 @@ def draw_results(frame, face_locations, face_names):
         bottom = int(bottom * frame_height)
         left = int(left * frame_width)
 
+        # If live, use green color, otherwise use red
+        color = (0, 255, 0) if live else (0, 0, 255)
+
         # Draw a box around the face
-        cv2.rectangle(frame, (left, top), (right, bottom), (244, 42, 3), 3)
+        cv2.rectangle(frame, (left, top), (right, bottom), color, 3)
 
         # Draw a label with a name below the face
         cv2.rectangle(frame, (left -3, top - 35), (right+3, top), (244, 42, 3), cv2.FILLED)
@@ -40,6 +49,17 @@ def draw_results(frame, face_locations, face_names):
         cv2.putText(frame, name, (left + 6, top - 6), font, 1.0, (255, 255, 255), 1)
 
     return frame
+
+def adjust_brightness(frame, target_brightness=127):
+    # Calculate current average brightness
+    current_brightness = np.mean(cv2.cvtColor(frame, cv2.COLOR_BGRA2GRAY))
+
+    # Calculate brightness ratio
+    brightness_ratio = target_brightness / current_brightness
+
+    # Adjust brightness while keeping within bounds
+    adjusted = cv2.convertScaleAbs(frame, alpha=brightness_ratio, beta=0)
+    return adjusted
 
 def calculate_fps():
     global frame_count, start_time, fps
@@ -55,6 +75,7 @@ def calculate_fps():
 previous_face_locations = []
 previous_face_names = []
 last_full_scan_time = time.time()
+failed_delta_count = 0
 
 print("[INFO] starting main loop...")
 try:
@@ -65,11 +86,17 @@ try:
         # Capture a frame from camera
         frame = picam2.capture_array()
 
+        # Add brightness adjustment before processing
+        frame = adjust_brightness(frame)
+
         # Check if it's time for a full scan
         time_since_last_full_scan = time.time() - last_full_scan_time
         do_full_scan = False
         if previous_face_locations is None:
             print("First run, performing full scan")
+            do_full_scan = True
+        elif failed_delta_count > 50:
+            print("Too many failed delta scans, performing full scan")
             do_full_scan = True
         elif len(previous_face_locations) == 0:
             print("No faces detected in previous frame, performing full scan")
@@ -79,15 +106,16 @@ try:
             do_full_scan = True
 
         if not do_full_scan:
-            result = delta_scan(frame, previous_face_locations, previous_face_names)
-            if result:
-                face_locations, face_names, timings = result
+            face_locations, face_names, live, timings = delta_scan(frame, previous_face_locations, previous_face_names)
+            if all(live):
+                failed_delta_count = 0
             else:
-                do_full_scan = True
+                failed_delta_count += 1
 
         if do_full_scan:
-            face_locations, face_names, timings = full_scan(frame)
+            face_locations, face_names, live, timings = full_scan(frame)
             last_full_scan_time = time.time()
+            failed_delta_count = 0
 
         # Update previous face data
         previous_face_locations = face_locations
@@ -110,7 +138,7 @@ try:
         # Display everything over the video feed.
         if not is_ssh:
             # Get the text and boxes to be drawn based on the processed frame
-            display_frame = draw_results(frame, face_locations, face_names)
+            display_frame = draw_results(frame, face_locations, face_names, live)
 
             # Resize the display_frame to 360p
             display_frame = cv2.resize(display_frame, (640, 360))
