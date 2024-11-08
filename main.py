@@ -95,7 +95,7 @@ try:
         if previous_face_locations is None:
             print("First run, performing full scan")
             do_full_scan = True
-        elif failed_delta_count > 50:
+        elif failed_delta_count > 10:
             print("Too many failed delta scans, performing full scan")
             do_full_scan = True
         elif len(previous_face_locations) == 0:
@@ -158,7 +158,7 @@ try:
         else:
             # Sleep to maintain constant frame rate and avoid high CPU usage
             cycle_time = time.time() - cycle_start_time
-            time.sleep(max(0, 1/20 - cycle_time))
+            time.sleep(max(0, 1/15 - cycle_time))
 except KeyboardInterrupt:
     # Allow script to be stopped with Ctrl+C when running over SSH
     pass

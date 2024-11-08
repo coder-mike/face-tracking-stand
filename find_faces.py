@@ -3,6 +3,9 @@ import cv2
 import face_recognition
 import pickle
 import numpy as np
+from mtcnn import MTCNN
+
+detector = MTCNN()
 
 # Load pre-trained face encodings
 print("[INFO] loading encodings...")
@@ -37,10 +40,16 @@ def full_scan(frame):
     # Color conversion
     rgb_resized_frame = cv2.cvtColor(resized_frame, cv2.COLOR_BGR2RGB)
 
-    # Face location
+    # Face location using MTCNN
     face_location_start = time.time()
-    face_locations = face_recognition.face_locations(rgb_resized_frame)
+    detections = detector.detect_faces(rgb_resized_frame)
     timings['face_location'] = (time.time() - face_location_start) * 1000  # milliseconds
+
+    # Extract face locations
+    for detection in detections:
+        x, y, width, height = detection['box']
+        top, right, bottom, left = y, x + width, y + height, x
+        face_locations.append((top, right, bottom, left))
 
     # Face encoding
     face_encoding_start = time.time()
@@ -80,6 +89,7 @@ def full_scan(frame):
 
     return face_locations, face_names, live, timings
 
+
 def delta_scan(frame, previous_face_locations, previous_face_names):
     face_locations = []
     face_names = []
@@ -114,26 +124,28 @@ def delta_scan(frame, previous_face_locations, previous_face_names):
         cropped_frame = frame[top_new:bottom_new, left_new:right_new]
 
         # Resize to speed up face detection
-        width_new = 100
+        width_new = 50
         scale = width_new / (right_new - left_new)
         height_new = int((bottom_new - top_new) * scale)
         resized_cropped_frame = cv2.resize(cropped_frame, (width_new, height_new))
 
-        # Face detection on cropped image
+        # Face detection on cropped image using MTCNN
         face_location_start = time.time()
         rgb_cropped_frame = cv2.cvtColor(resized_cropped_frame, cv2.COLOR_BGR2RGB)
-        face_locations_cropped = face_recognition.face_locations(rgb_cropped_frame)
+        detections = detector.detect_faces(rgb_cropped_frame)
         timings['face_location'] += (time.time() - face_location_start) * 1000  # Accumulate time in milliseconds
 
-        if len(face_locations_cropped) != 1:
+        if len(detections) != 1:
             # Fall back to previous face location
             live.append(False)
             face_locations.append((top_norm, right_norm, bottom_norm, left_norm))
             face_names.append(name)
             continue
 
-        # Map face location back to original frame
-        top_cropped, right_cropped, bottom_cropped, left_cropped = face_locations_cropped[0]
+        # Extract face location from detection
+        detection = detections[0]
+        x, y, width, height = detection['box']
+        top_cropped, right_cropped, bottom_cropped, left_cropped = y, x + width, y + height, x
 
         # Scale back up to the size of the cropped image
         top_rescaled = top_new + int(top_cropped / height_new * (bottom_new - top_new))
