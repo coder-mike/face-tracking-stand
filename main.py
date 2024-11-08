@@ -78,9 +78,13 @@ def process_frame(frame):
     timings['face_matching'] = (time.time() - face_matching_start) * 1000  # milliseconds
 
     # Output timings for processing steps
-    print(f"Resize: {timings['resize']:.2f} ms, Color Conversion: {timings['color_conversion']:.2f} ms, "
-          f"Face Location: {timings['face_location']:.2f} ms, Face Encoding: {timings['face_encoding']:.2f} ms, "
-          f"Face Matching: {timings['face_matching']:.2f} ms")
+    print(f"fps: {fps:.1f}, "
+        # f"Resize: {timings['resize']:.2f} ms, "
+        # f"Color Conversion: {timings['color_conversion']:.2f} ms, "
+        f"Face Location: {timings['face_location']:.2f} ms, "
+        f"Face Encoding: {timings['face_encoding']:.2f} ms, "
+        f"Face Matching: {timings['face_matching']:.2f} ms"
+    )
 
     # After identifying face_locations
     # Calculate average x-position of faces
